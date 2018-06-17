@@ -127,12 +127,12 @@ We use 'Mean IoU' for non-targeted tasks and 'Success Rate' for targeted tasks:
 ### Universal Perturbations:
 
 <p align="center">
-<img src="https://github.com/isaykatsman/tempgaprelease/blob/master/material/architecture/Universal.png" width="750">
+<img src="https://github.com/OmidPoursaeed/Generative_Adversarial_Perturbations/blob/master/material/architecture/Universal.png" width="750">
 </p>
 
 ### Image-dependent Perturbations:
 <p align="center">
-<img src="https://github.com/isaykatsman/tempgaprelease/blob/master/material/architecture/Image_Dependent.png" width="750">
+<img src="https://github.com/OmidPoursaeed/Generative_Adversarial_Perturbations/blob/master/material/architecture/Image_Dependent.png" width="750">
 </p>
 
 
