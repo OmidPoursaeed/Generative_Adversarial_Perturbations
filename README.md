@@ -89,7 +89,7 @@ optional arguments:
   --path_to_U_noise PATH_TO_U_NOISE
                         path to U_input_noise.txt (only needed for universal)
   --explicit_U EXPLICIT_U
-                        Path to a universeal perturbation to use
+                        Path to a universal perturbation to use
 ```
 
 ## Segmentation
