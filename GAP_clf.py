@@ -59,12 +59,12 @@ best_fooling = 0
 itr_accum = 0
 
 # make directories
-if not os.path.exists("images_" + opt.expname):
-    os.mkdir("images_" + opt.expname)
+if not os.path.exists(opt.expname):
+    os.mkdir(opt.expname)
 
 if opt.perturbation_type == 'universal':
-    if not os.path.exists("images_" + opt.expname + '/U_out'):
-        os.mkdir("images_" + opt.expname + '/U_out')
+    if not os.path.exists(opt.expname + '/U_out'):
+        os.mkdir(opt.expname + '/U_out')
 
 cudnn.benchmark = True
 torch.cuda.manual_seed(opt.seed)
@@ -148,11 +148,11 @@ if not opt.explicit_U:
         if opt.checkpoint:
             if opt.path_to_U_noise:
                 noise_data = np.loadtxt(opt.path_to_U_noise)
-                np.savetxt('images_' + opt.expname + '/U_input_noise.txt', noise_data)
+                np.savetxt(opt.expname + '/U_input_noise.txt', noise_data)
             else:
-                noise_data = np.loadtxt('images_' + opt.expname + '/U_input_noise.txt')
+                noise_data = np.loadtxt(opt.expname + '/U_input_noise.txt')
         else:
-            np.savetxt('images_' + opt.expname + '/U_input_noise.txt', noise_data)
+            np.savetxt(opt.expname + '/U_input_noise.txt', noise_data)
         im_noise = np.reshape(noise_data, (3, center_crop, center_crop))
         im_noise = im_noise[np.newaxis, :, :, :]
         im_noise_tr = np.tile(im_noise, (opt.batchSize, 1, 1, 1))
@@ -273,15 +273,15 @@ def test():
                 recons.data[:,c2,:,:] = (recons.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
                 image.data[:,c2,:,:] = (image.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
                 delta_im_temp.data[:,c2,:,:] = (delta_im.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
-            if not os.path.exists("images_"+opt.expname):
-                os.mkdir("images_"+opt.expname)
+            if not os.path.exists(opt.expname):
+                os.mkdir(opt.expname)
 
             post_l_inf = (recons.data - image[0:recons.size(0)].data).abs().max() * 255.0
             print("Specified l_inf: ", mag_in, ", maximum l_inf of generated perturbations: ", post_l_inf)
 
-            torchvision.utils.save_image(recons.data, 'images_'+opt.expname+'/reconstructed_{}.png'.format(itr))
-            torchvision.utils.save_image(image.data, 'images_'+opt.expname+'/original_{}.png'.format(itr))
-            torchvision.utils.save_image(delta_im_temp.data, 'images_'+opt.expname+'/delta_im_{}.png'.format(itr))
+            torchvision.utils.save_image(recons.data, opt.expname+'/reconstructed_{}.png'.format(itr))
+            torchvision.utils.save_image(image.data, opt.expname+'/original_{}.png'.format(itr))
+            torchvision.utils.save_image(delta_im_temp.data, opt.expname+'/delta_im_{}.png'.format(itr))
             print('Saved images.')
 
     test_acc_history.append((100.0 * correct_recon / total))
@@ -321,14 +321,14 @@ def normalize_and_scale(delta_im, mode='train'):
 def checkpoint_dict(epoch):
     netG.eval()
     global best_fooling
-    if not os.path.exists("images_"+opt.expname):
-        os.mkdir("images_"+opt.expname)
+    if not os.path.exists(opt.expname):
+        os.mkdir(opt.expname)
 
     task_label = "foolrat" if opt.target == -1 else "top1target"
 
-    net_g_model_out_path = "images_" + opt.expname + "/netG_model_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1])
+    net_g_model_out_path = opt.expname + "/netG_model_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1])
     if opt.perturbation_type == 'universal':
-        u_out_path = "images_" + opt.expname + "/U_out/U_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1]) 
+        u_out_path = opt.expname + "/U_out/U_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1]) 
     if test_fooling_history[epoch-1] > best_fooling:
         best_fooling = test_fooling_history[epoch-1]
         torch.save(netG.state_dict(), net_g_model_out_path)
@@ -347,7 +347,7 @@ def print_history():
         plt.ylabel('Loss')
         plt.xlabel('Iteration')
         plt.legend(['Training Loss'], loc='upper right')
-        plt.savefig('images_'+opt.expname+'/reconstructed_loss_'+opt.mode+'.png')
+        plt.savefig(opt.expname+'/reconstructed_loss_'+opt.mode+'.png')
         plt.clf()
 
     # plot history for classification testing accuracy and fooling ratio
@@ -356,7 +356,7 @@ def print_history():
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(['Testing Classification Accuracy'], loc='upper right')
-    plt.savefig('images_'+opt.expname+'/reconstructed_acc_'+opt.mode+'.png')
+    plt.savefig(opt.expname+'/reconstructed_acc_'+opt.mode+'.png')
     plt.clf()
 
     plt.plot(test_fooling_history)
@@ -364,7 +364,7 @@ def print_history():
     plt.ylabel('Fooling Ratio')
     plt.xlabel('Epoch')
     plt.legend(['Testing Fooling Ratio'], loc='upper right')
-    plt.savefig('images_'+opt.expname+'/reconstructed_foolrat_'+opt.mode+'.png')
+    plt.savefig(opt.expname+'/reconstructed_foolrat_'+opt.mode+'.png')
     print("Saved plots.")
 
 if opt.mode == 'train':
