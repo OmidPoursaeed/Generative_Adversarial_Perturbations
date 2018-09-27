@@ -47,8 +47,8 @@ opt = parser.parse_args()
 
 print(opt)
 
-if not torch.cuda.is_available():
-    raise Exception("No GPU found.")
+#if not torch.cuda.is_available():
+#    raise Exception("No GPU found.")
 
 # train loss history
 train_loss_history = []
@@ -76,7 +76,7 @@ n_gpu = len(gpulist)
 print('Running with n_gpu: ', n_gpu)
 
 # define normalization means and stddevs
-model_dimension = 299 if opt.foolmodel == 'incv3' else 256 
+model_dimension = 299 if opt.foolmodel == 'incv3' else 256
 center_crop = 299 if opt.foolmodel == 'incv3' else 224
 
 mean_arr = [0.485, 0.456, 0.406]
@@ -204,7 +204,7 @@ def train(epoch):
 
         # do clamping per channel
         for cii in range(3):
-            recons.data[:,cii,:,:] = recons.data[:,cii,:,:].clamp(image.data[:,cii,:,:].min(), image.data[:,cii,:,:].max()) 
+            recons.data[:,cii,:,:] = recons.data[:,cii,:,:].clamp(image.data[:,cii,:,:].min(), image.data[:,cii,:,:].max())
 
         output_pretrained = pretrained_clf(recons.cuda(gpulist[0]))
 
@@ -214,8 +214,8 @@ def train(epoch):
         loss.backward()
         optimizerG.step()
 
-        train_loss_history.append(loss.data[0])
-        print("===> Epoch[{}]({}/{}) loss: {:.4f}".format(epoch, itr, len(training_data_loader), loss.data[0]))
+        train_loss_history.append(loss.item())
+        print("===> Epoch[{}]({}/{}) loss: {:.4f}".format(epoch, itr, len(training_data_loader), loss.item()))
 
 
 def test():
@@ -286,8 +286,8 @@ def test():
 
     test_acc_history.append((100.0 * correct_recon / total))
     test_fooling_history.append((100.0 * fooled / total))
-    print('Accuracy of the pretrained network on reconstructed images: %.2f %%' % (100.0 * correct_recon / total)) 
-    print('Accuracy of the pretrained network on original images: %.2f %%' % (100.0 * correct_orig / total)) 
+    print('Accuracy of the pretrained network on reconstructed images: %.2f %%' % (100.0 * correct_recon / total))
+    print('Accuracy of the pretrained network on original images: %.2f %%' % (100.0 * correct_orig / total))
     if opt.target == -1:
         print('Fooling ratio: %.2f %%' % (100.0 * fooled / total))
     else:
@@ -313,7 +313,8 @@ def normalize_and_scale(delta_im, mode='train'):
         for ci in range(3):
             l_inf_channel = delta_im[i,ci,:,:].data.abs().max()
             mag_in_scaled_c = mag_in/(255.0*stddev_arr[ci])
-            delta_im[i,ci,:,:].data *= np.minimum(1.0, mag_in_scaled_c / l_inf_channel)
+            gpu_id = gpulist[1] if n_gpu > 1 else gpulist[0]
+            delta_im[i,ci,:,:].data *= torch.tensor(np.minimum(1.0, mag_in_scaled_c / l_inf_channel)).float().cuda(gpu_id)
 
     return delta_im
 
@@ -328,7 +329,7 @@ def checkpoint_dict(epoch):
 
     net_g_model_out_path = opt.expname + "/netG_model_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1])
     if opt.perturbation_type == 'universal':
-        u_out_path = opt.expname + "/U_out/U_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1]) 
+        u_out_path = opt.expname + "/U_out/U_epoch_{}_".format(epoch) + task_label + "_{}.pth".format(test_fooling_history[epoch-1])
     if test_fooling_history[epoch-1] > best_fooling:
         best_fooling = test_fooling_history[epoch-1]
         torch.save(netG.state_dict(), net_g_model_out_path)
