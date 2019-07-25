@@ -8,7 +8,6 @@ import torchvision
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 #from models import ResnetGenerator, weights_init
 from material.models.generators import ResnetGenerator, weights_init
@@ -17,6 +16,8 @@ import torch.backends.cudnn as cudnn
 import math
 import torchvision.transforms as transforms
 import numpy as np
+
+torch.autograd.set_detect_anomaly(True)
 
 # Training settings
 parser = argparse.ArgumentParser(description='generative adversarial perturbations')
@@ -85,7 +86,7 @@ normalize = transforms.Normalize(mean=mean_arr,
                                  std=stddev_arr)
 
 data_transform = transforms.Compose([
-    transforms.Scale(model_dimension),
+    transforms.Resize(model_dimension),
     transforms.CenterCrop(center_crop),
     transforms.ToTensor(),
     normalize,
@@ -156,12 +157,10 @@ if not opt.explicit_U:
         im_noise = np.reshape(noise_data, (3, center_crop, center_crop))
         im_noise = im_noise[np.newaxis, :, :, :]
         im_noise_tr = np.tile(im_noise, (opt.batchSize, 1, 1, 1))
-        noise_tensor_tr = torch.from_numpy(im_noise_tr).type(torch.FloatTensor)
-        noise_tr = Variable(noise_tensor_tr).cuda(gpulist[0])
+        noise_tr = torch.from_numpy(im_noise_tr).type(torch.FloatTensor).cuda(gpulist[0])
 
         im_noise_te = np.tile(im_noise, (opt.testBatchSize, 1, 1, 1))
-        noise_tensor_te = torch.from_numpy(im_noise_te).type(torch.FloatTensor)
-        noise_te = Variable(noise_tensor_te).cuda(gpulist[0])
+        noise_te = torch.from_numpy(im_noise_te).type(torch.FloatTensor).cuda(gpulist[0])
 
 def train(epoch):
     netG.train()
@@ -174,20 +173,19 @@ def train(epoch):
 
         if opt.target == -1:
             # least likely class in nontargeted case
-            pretrained_label_float = pretrained_clf(Variable(image).cuda(gpulist[0]))
+            pretrained_label_float = pretrained_clf(image.cuda(gpulist[0]))
             _, target_label = torch.min(pretrained_label_float, 1)
         else:
             # targeted case
             target_label = torch.LongTensor(image.size(0))
             target_label.fill_(opt.target)
-            target_label = Variable(target_label.cuda(gpulist[0]))
+            target_label = target_label.cuda(gpulist[0])
 
         itr_accum += 1
         if opt.optimizer == 'sgd':
             lr_mult = (itr_accum // 1000) + 1
             optimizerG = optim.SGD(netG.parameters(), lr=opt.lr/lr_mult, momentum=0.9)
 
-        image = Variable(image)
         image = image.cuda(gpulist[0])
 
         ## generate per image perturbation from fixed noise
@@ -204,7 +202,7 @@ def train(epoch):
 
         # do clamping per channel
         for cii in range(3):
-            recons.data[:,cii,:,:] = recons.data[:,cii,:,:].clamp(image.data[:,cii,:,:].min(), image.data[:,cii,:,:].max())
+            recons[:,cii,:,:] = recons[:,cii,:,:].clone().clamp(image[:,cii,:,:].min(), image[:,cii,:,:].max())
 
         output_pretrained = pretrained_clf(recons.cuda(gpulist[0]))
 
@@ -239,7 +237,6 @@ def test():
         if itr > MaxIterTest:
             break
 
-        image = Variable(image)
         image = image.cuda(gpulist[0])
 
         if opt.perturbation_type == 'imdep':
@@ -250,12 +247,12 @@ def test():
 
         # do clamping per channel
         for cii in range(3):
-            recons.data[:,cii,:,:] = recons.data[:,cii,:,:].clamp(image.data[:,cii,:,:].min(), image.data[:,cii,:,:].max())
+            recons[:,cii,:,:] = recons[:,cii,:,:].clone().clamp(image[:,cii,:,:].min(), image[:,cii,:,:].max())
 
         outputs_recon = pretrained_clf(recons.cuda(gpulist[0]))
         outputs_orig = pretrained_clf(image.cuda(gpulist[0]))
-        _, predicted_recon = torch.max(outputs_recon.data, 1)
-        _, predicted_orig = torch.max(outputs_orig.data, 1)
+        _, predicted_recon = torch.max(outputs_recon, 1)
+        _, predicted_orig = torch.max(outputs_orig, 1)
         total += image.size(0)
         correct_recon += (predicted_recon == class_label.cuda(gpulist[0])).sum()
         correct_orig += (predicted_orig == class_label.cuda(gpulist[0])).sum()
@@ -268,30 +265,30 @@ def test():
         if itr % 50 == 1:
             print('Images evaluated:', (itr*opt.testBatchSize))
             # undo normalize image color channels
-            delta_im_temp = Variable(torch.zeros(delta_im.size()))
+            delta_im_temp = torch.zeros(delta_im.size())
             for c2 in range(3):
-                recons.data[:,c2,:,:] = (recons.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
-                image.data[:,c2,:,:] = (image.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
-                delta_im_temp.data[:,c2,:,:] = (delta_im.data[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
+                recons[:,c2,:,:] = (recons[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
+                image[:,c2,:,:] = (image[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
+                delta_im_temp[:,c2,:,:] = (delta_im[:,c2,:,:] * stddev_arr[c2]) + mean_arr[c2]
             if not os.path.exists(opt.expname):
                 os.mkdir(opt.expname)
 
-            post_l_inf = (recons.data - image[0:recons.size(0)].data).abs().max() * 255.0
-            print("Specified l_inf: ", mag_in, ", maximum l_inf of generated perturbations: ", post_l_inf)
+            post_l_inf = (recons - image[0:recons.size(0)]).abs().max() * 255.0
+            print("Specified l_inf:", mag_in, "| maximum l_inf of generated perturbations: %.2f" % (post_l_inf.item()))
 
-            torchvision.utils.save_image(recons.data, opt.expname+'/reconstructed_{}.png'.format(itr))
-            torchvision.utils.save_image(image.data, opt.expname+'/original_{}.png'.format(itr))
-            torchvision.utils.save_image(delta_im_temp.data, opt.expname+'/delta_im_{}.png'.format(itr))
+            torchvision.utils.save_image(recons, opt.expname+'/reconstructed_{}.png'.format(itr))
+            torchvision.utils.save_image(image, opt.expname+'/original_{}.png'.format(itr))
+            torchvision.utils.save_image(delta_im_temp, opt.expname+'/delta_im_{}.png'.format(itr))
             print('Saved images.')
 
     test_acc_history.append((100.0 * correct_recon / total))
     test_fooling_history.append((100.0 * fooled / total))
-    print('Accuracy of the pretrained network on reconstructed images: %.2f %%' % (100.0 * correct_recon / total))
-    print('Accuracy of the pretrained network on original images: %.2f %%' % (100.0 * correct_orig / total))
+    print('Accuracy of the pretrained network on reconstructed images: %.2f%%' % (100.0 * float(correct_recon) / float(total)))
+    print('Accuracy of the pretrained network on original images: %.2f%%' % (100.0 * float(correct_orig) / float(total)))
     if opt.target == -1:
-        print('Fooling ratio: %.2f %%' % (100.0 * fooled / total))
+        print('Fooling ratio: %.2f%%' % (100.0 * float(fooled) / float(total)))
     else:
-        print('Top-1 Target Accuracy: %.2f %%' % (100.0 * fooled / total))
+        print('Top-1 Target Accuracy: %.2f%%' % (100.0 * float(fooled) / float(total)))
 
 def normalize_and_scale(delta_im, mode='train'):
     if opt.foolmodel == 'incv3':
@@ -302,7 +299,7 @@ def normalize_and_scale(delta_im, mode='train'):
 
     # normalize image color channels
     for c in range(3):
-        delta_im[:,c,:,:] = (delta_im[:,c,:,:] - mean_arr[c]) / stddev_arr[c]
+        delta_im[:,c,:,:] = (delta_im[:,c,:,:].clone() - mean_arr[c]) / stddev_arr[c]
 
     # threshold each channel of each image in deltaIm according to inf norm
     # do on a per image basis as the inf norm of each image could be different
@@ -313,7 +310,7 @@ def normalize_and_scale(delta_im, mode='train'):
             l_inf_channel = delta_im[i,ci,:,:].detach().abs().max()
             mag_in_scaled_c = mag_in/(255.0*stddev_arr[ci])
             gpu_id = gpulist[1] if n_gpu > 1 else gpulist[0]
-            delta_im[i,ci,:,:] = delta_im[i,ci,:,:] * np.minimum(1.0, mag_in_scaled_c / l_inf_channel.cpu().numpy())
+            delta_im[i,ci,:,:] = delta_im[i,ci,:,:].clone() * np.minimum(1.0, mag_in_scaled_c / l_inf_channel.cpu().numpy())
 
     return delta_im
 
@@ -336,7 +333,7 @@ def checkpoint_dict(epoch):
             torch.save(netG(noise_te[0:1]), u_out_path)
         print("Checkpoint saved to {}".format(net_g_model_out_path))
     else:
-        print("No improvement: ", test_fooling_history[epoch-1], " Best: ", best_fooling)
+        print("No improvement:", test_fooling_history[epoch-1], "Best:", best_fooling)
 
 
 def print_history():
