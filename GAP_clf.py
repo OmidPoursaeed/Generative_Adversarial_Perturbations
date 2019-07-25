@@ -293,17 +293,16 @@ def test():
     else:
         print('Top-1 Target Accuracy: %.2f %%' % (100.0 * fooled / total))
 
-
 def normalize_and_scale(delta_im, mode='train'):
     if opt.foolmodel == 'incv3':
         delta_im = nn.ConstantPad2d((0,-1,-1,0),0)(delta_im) # crop slightly to match inception
 
-    delta_im.data += 1 # now 0..2
-    delta_im.data *= 0.5 # now 0..1
+    delta_im = delta_im + 1 # now 0..2
+    delta_im = delta_im * 0.5 # now 0..1
 
     # normalize image color channels
     for c in range(3):
-        delta_im.data[:,c,:,:] = (delta_im.data[:,c,:,:] - mean_arr[c]) / stddev_arr[c]
+        delta_im[:,c,:,:] = (delta_im[:,c,:,:] - mean_arr[c]) / stddev_arr[c]
 
     # threshold each channel of each image in deltaIm according to inf norm
     # do on a per image basis as the inf norm of each image could be different
@@ -311,10 +310,10 @@ def normalize_and_scale(delta_im, mode='train'):
     for i in range(bs):
         # do per channel l_inf normalization
         for ci in range(3):
-            l_inf_channel = delta_im[i,ci,:,:].data.abs().max()
+            l_inf_channel = delta_im[i,ci,:,:].detach().abs().max()
             mag_in_scaled_c = mag_in/(255.0*stddev_arr[ci])
             gpu_id = gpulist[1] if n_gpu > 1 else gpulist[0]
-            delta_im[i,ci,:,:].data *= torch.tensor(np.minimum(1.0, mag_in_scaled_c / l_inf_channel)).float().cuda(gpu_id)
+            delta_im[i,ci,:,:] = delta_im[i,ci,:,:] * np.minimum(1.0, mag_in_scaled_c / l_inf_channel.cpu().numpy())
 
     return delta_im
 
