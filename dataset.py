@@ -1,8 +1,6 @@
 from os import listdir
 from os.path import join
-
 import torch.utils.data as data
-
 from util import is_image_file, load_img
 
 
@@ -22,4 +20,3 @@ class DatasetFromFolder(data.Dataset):
 
     def __len__(self):
         return len(self.image_filenames)
-
