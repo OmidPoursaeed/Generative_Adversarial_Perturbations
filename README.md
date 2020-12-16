@@ -158,10 +158,11 @@ faster than current iterative methods at inference time.
 
 If you use the code in this repository in your paper, please consider citing:
 ```
-@article{poursaeed2020self,
-  title={Self-supervised Learning of Point Clouds via Orientation Estimation},
-  author={Poursaeed, Omid and Jiang, Tianxing and Qiao, Quintessa and Xu, Nayun and Kim, Vladimir G.},
-  journal={arXiv preprint arXiv:2008.00305},
-  year={2020}
+@inproceedings{poursaeed2018generative,
+  title={Generative adversarial perturbations},
+  author={Poursaeed, Omid and Katsman, Isay and Gao, Bicheng and Belongie, Serge},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  pages={4422--4431},
+  year={2018}
 }
 ```
