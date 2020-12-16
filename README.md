@@ -158,11 +158,10 @@ faster than current iterative methods at inference time.
 
 If you use the code in this repository in your paper, please consider citing:
 ```
-@InProceedings{Poursaeed_2018_CVPR,
-  author = {Poursaeed, Omid and Katsman, Isay and Gao, Bicheng and Belongie, Serge},
-  title = {Generative Adversarial Perturbations},
-  booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-  month = {June},
-  year = {2018}
+@article{poursaeed2020self,
+  title={Self-supervised Learning of Point Clouds via Orientation Estimation},
+  author={Poursaeed, Omid and Jiang, Tianxing and Qiao, Quintessa and Xu, Nayun and Kim, Vladimir G.},
+  journal={arXiv preprint arXiv:2008.00305},
+  year={2020}
 }
 ```
